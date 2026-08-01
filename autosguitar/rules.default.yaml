@@ -1,0 +1,113 @@
+# AutoSGuitar 既定ルール設定
+#
+# 仕様は docs/05-architecture.md §5.4 を参照。
+# `--rules my.yaml` で指定したファイルの内容が、このファイルの上に
+# 再帰的にマージされる（指定した項目だけを上書きできる）。
+#
+# "tpq/32" のような文字列は、入力 MIDI の分解能から tick 数に解決される。
+
+profile: ksop
+
+# ---------------------------------------------------------------- 注釈レイヤー
+# docs/03-annotation-layer.md §3.3
+annotation_block: [105, 127]
+
+annotations:
+  # ── context（区間指定を想定）──────────────────────────
+  120: { context: backing_riff }   # 低音リフ。PM 寄り、ダウンピッキング寄り
+  121: { context: backing_chord }  # コードバッキング。ストローク寄り
+  122: { context: lead }           # 単音リード。レガート寄り
+  123: { context: clean }          # クリーン / アルペジオ。サステイン寄り
+
+  # ── 奏法の強制（区間・ピンポイント両用）─────────────────
+  105: { force: sustain }
+  106: { force: palm_mute }
+  107: { force: brush }
+  108: { force: mute_fret }
+  109: { force: harmonics_natural }  # 自動判定しない
+  110: { force: harmonics_pinch }    # 自動判定しない
+  111: { force: hammer_pull }
+  112: { force: slide_down }
+  113: { force: slide_up }
+  114: { force: slide_in }
+  115: { force: slide_out }
+  116: { force: bend_ht }            # 半音
+  117: { force: bend_wt }            # 1音
+  118: { force: bend_1ht }           # 1音半
+
+  # ── ピッキング方向の強制 ──────────────────────────────
+  125: { stroke: down }
+  126: { stroke: up }
+
+  # ── ロック ────────────────────────────────────────
+  127: { lock: true }                # この区間は KS/CC を一切生成しない
+
+  # 119, 124 は将来の拡張用に予約
+
+# ------------------------------------------------------------- CC の既定値
+# 曲頭に一度だけ書き込む。docs/02-sound-source-spec.md §2.4 / §2.5
+defaults:
+  21: 95    # Vib_Speed
+  22: 110   # Mute_Time（音源既定 127 より詰めてリフの粒立ちを出す）
+  24: 88    # Rel_Shape → 80 以上で自動スライドアウトが有効になる
+  25: 108   # Rel_Level
+  48: 64    # Magnet
+
+# ------------------------------------------------------------------ 出力
+render:
+  # 全キースイッチの先行オフセット。
+  # 分離トラック方式ではイベント順序が保証されないため必須
+  # (docs/02-sound-source-spec.md §2.8)
+  ks_lead: "tpq/32"
+  ks_velocity: 100
+  # 連続する同一キースイッチを抑制するか。
+  # 音源はラッチするので毎回出しても無害（§2.7 ④）
+  dedup: false
+  ks_track_name: "AutoSG_KS"
+
+# ------------------------------------------------------------ 解析パラメータ
+analysis:
+  # 和音とみなす発音開始のずれ。ラフな打ち込みを吸収する
+  chord_tolerance: "tpq/32"
+  # 拍分割の推定候補（1 拍を何分割するか）
+  subdivision_candidates: [1, 2, 3, 4, 6]
+  # グリッドスナップの許容誤差
+  grid_tolerance: "tpq/16"
+
+# ---------------------------------------------------------------- 判定ルール
+# docs/04-articulation-rules.md
+rules:
+  stroke:
+    # この長さ以上の休符が直前にあれば、次の音は必ずダウン (§4.1 上書き 1)
+    rest_reset_beats: 1.0
+    # 低音域のパームミュートリフで 8 分音符がこの BPM 以下なら全ダウン (§4.1 上書き 2)
+    downpick_max_bpm: 170
+    downpick_max_pitch: 57
+    # ギャロップ検出を有効にするか (§4.1 上書き 3/4)
+    detect_gallop: true
+
+  palm_mute:
+    pitch_strong_below: 57      # これ以下なら強く支持
+    pitch_reject_above: 62      # これ以上なら強く否定
+    duration_ratio_max: 0.5     # これ以下ならスタッカート = 支持
+    pedal_window_bars: 2
+    pedal_min_count: 3
+    pedal_min_share: 0.40
+    score_threshold: 0.5
+    weights:
+      low_pitch: 0.40
+      high_pitch: -1.00
+      staccato: 0.20
+      pedal_tone: 0.60
+      power_chord: 0.20
+      full_chord: -0.60
+      repeated_pitch: 0.10
+
+  dead_note:
+    max_duration_ratio: 0.25
+    max_duration: "tpq/8"       # 16 分音符の半分
+    max_velocity: 50
+
+  legato:
+    max_interval: 5             # 同一弦で届く範囲の近似。Phase 2 で弦判定に置換
+    max_gap: "tpq/32"

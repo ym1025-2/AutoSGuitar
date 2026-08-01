@@ -19,6 +19,11 @@ DAW で手打ちする際の**雛形（叩き台）となる MIDI を自動生�
 | [04-articulation-rules.md](04-articulation-rules.md) | キースイッチ付加ルール（ギター奏法の知識ベース） |
 | [05-architecture.md](05-architecture.md) | アーキテクチャ・データモデル・CLI・ロードマップ |
 
+## 実装状況
+
+**Phase 1 実装済み。** 使い方は [ルート README](../README.md) を参照。
+ロードマップは [05-architecture.md §5.9](05-architecture.md)。
+
 ## 確定事項サマリ
 
 - 対象パッチは **KSOP**（`01-Standard Guitar KSOP`）。VSOP は将来対応
